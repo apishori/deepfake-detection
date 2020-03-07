@@ -156,7 +156,7 @@ model.fit_generator(
     validation_data=valid,
     verbose=1,
     epochs=EPOCHS,
-    callbacks=callbacks
+    #callbacks=callbacks
 )
 
 
