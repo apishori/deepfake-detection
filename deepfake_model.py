@@ -62,7 +62,7 @@ print(valid)
 
 
 import keras_video.utils
-keras_video.utils.show_sample(train)
+#keras_video.utils.show_sample(train)
 
 
 # In[10]:
