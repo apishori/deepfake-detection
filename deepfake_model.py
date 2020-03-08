@@ -1,24 +1,13 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[2]:
-
 import os
 import glob
 import keras
 from keras_video import VideoFrameGenerator
+import keras_video.utils
 
 
-# In[3]:
-
-
-#Use subdir names as classes
-classes = [i.split(os.path.sep)[1] for i in glob.glob('videos/*')]
+classes = [i.split(os.path.sep)[1] for i in glob.glob('data/*')]
 classes.sort()
 print(classes)
-
-
-# In[4]:
 
 
 #Global Params
@@ -28,14 +17,8 @@ NBFRAME = 5
 BS = 8
 
 
-# In[5]:
-
-
 #pattern to get videos and classes
-glob_pattern = 'videos/{classname}/*.mp4'
-
-
-# In[7]:
+glob_pattern = 'data/{classname}/*.mp4'
 
 
 #Create video frame generator
@@ -50,22 +33,10 @@ train = VideoFrameGenerator(
     nb_channel=CHANNELS,
     use_frame_cache=False)
 
-
-# In[8]:
-
-
 valid = train.get_validation_generator()
 print(valid)
 
 
-# In[9]:
-
-
-import keras_video.utils
-#keras_video.utils.show_sample(train)
-
-
-# In[10]:
 
 
 from keras.layers import Conv2D, BatchNormalization, MaxPool2D, GlobalMaxPool2D
@@ -100,9 +71,6 @@ def build_convnet(shape=(112, 112, 3)):
     return model
 
 
-# In[11]:
-
-
 from keras.layers import TimeDistributed, GRU, Dense, Dropout
 def action_model(shape=(5, 112, 112, 3), nbout=3):
     # Create our convnet with (112, 112, 3) input shape
@@ -126,8 +94,6 @@ def action_model(shape=(5, 112, 112, 3), nbout=3):
     return model
 
 
-# In[12]:
-
 
 INSHAPE=(NBFRAME,) + SIZE + (CHANNELS,) # (5, 112, 112, 3)
 model = action_model(INSHAPE, len(classes))
@@ -137,9 +103,6 @@ model.compile(
     'categorical_crossentropy',
     metrics=['acc']
 )
-
-
-# In[13]:
 
 
 EPOCHS=50
@@ -156,8 +119,5 @@ model.fit_generator(
     validation_data=valid,
     verbose=1,
     epochs=EPOCHS,
-    #callbacks=callbacks
+    callbacks=callbacks
 )
-
-
-
