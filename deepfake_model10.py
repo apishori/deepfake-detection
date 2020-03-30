@@ -1,130 +1,61 @@
-import numpy as np
 import pandas as pd
-import collections
-import json
-import glob
-import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import classification_report
+import simplejson as json
+from detect_blinks import *
 import os
-import shutil
-import keras
+from subprocess import Popen, PIPE 
+import subprocess
+import shlex
 
-from keras_video import VideoFrameGenerator
-import keras_video.utils
+#load labels from json file
+json_path = "train_sample_videos/metadata.json"
+with open(json_path, 'r') as f:
+    labels = json.load(f)
 
-#Use subdir names as classes
-classes = [i.split(os.path.sep)[1] for i in glob.glob('data/*')]
-classes.sort()
-print(classes)
+#create labels array with 1 for deepfake and 0 for real video
+y = []
+train_videos = "train_sample_videos/"
+for video_file in sorted(os.listdir(train_videos)):
+    if ".mp4" in str(video_file):
+        if labels[video_file]['label'] == "REAL":
+            y.append(0)
+        else:
+            y.append(1)
 
-#Global Params
-SIZE = (256, 256)
-CHANNELS = 3
-NBFRAME = 5
-BS = 8
 
-#pattern to get videos and classes
-glob_pattern = 'data/{classname}/*.mp4'
+#run detect_blinks.py script on all videos and store number of blinks
+blinks = []
+train_videos = "train_sample_videos/"
+for video_file in sorted(os.listdir(train_videos)):
+    if ".mp4" in str(video_file):
+        output = get_ipython().getoutput('python detect_blinks.py train_sample_videos/$video_file shape_predictor_68_face_landmarks.dat')
+        print(output)
+        blinks.append(output)
 
-#Create video frame generator
-train = VideoFrameGenerator(
-    classes=classes,
-    glob_pattern=glob_pattern,
-    nb_frames=NBFRAME,
-    split_val=.33,
-    shuffle=False,
-    batch_size=BS,
-    target_shape=SIZE,
-    nb_channel=CHANNELS,
-    use_frame_cache=False)
 
-valid = train.get_validation_generator()
-print(valid)
+# split data
+X_train, X_test, y_train, y_test = train_test_split(blinks, y, test_size=0.75, random_state=42)
 
-import keras_video.utils
-keras_video.utils.show_sample(train)
+# k-NN classifier with gridsearch
+from sklearn import neighbors
+from sklearn.model_selection import GridSearchCV
 
-# Model
-from keras.layers import Conv2D, ConvLSTM2D, BatchNormalization, MaxPool2D, GlobalMaxPool2D
-def build_convnet(shape=(256, 256, 3)):
-    momentum = .92
-    model = keras.Sequential()
-    model.add(Conv2D(64, (3,3), input_shape=shape,
-        padding='same', activation='relu'))
-    model.add(Conv2D(64, (3,3), padding='same', activation='relu'))
-    model.add(BatchNormalization(momentum=momentum))
+base_clf = neighbors.KNeighborsClassifier()
+parameters = {'n_neighbors': [1, 2, 5, 10, 15, 25], 'weights': ['uniform', 'distance']}
 
-    model.add(MaxPool2D())
-    model.add(Dropout(.3))
+clf = GridSearchCV(base_clf, parameters, cv=3)
+clf.fit(X_train, y_train)
+print('Best Hyperparameters: ', clf.best_params_, '\n')
 
-    model.add(Conv2D(128, (3,3), padding='same', activation='relu'))
-    model.add(Conv2D(128, (3,3), padding='same', activation='relu'))
-    model.add(BatchNormalization(momentum=momentum))
+pred = clf.predict(X_test)
+scores = clf.predict_proba(X_test)[:,1]   
 
-    model.add(MaxPool2D())
-    model.add(Dropout(.3))
+print('Accuracy: ', accuracy_score(y_test, pred))
+print('AUROC: ', roc_auc_score(y_test, scores))
+print(classification_report(y_test, pred))
 
-    model.add(Conv2D(256, (3,3), padding='same', activation='relu'))
-    model.add(Conv2D(256, (3,3), padding='same', activation='relu'))
-    model.add(BatchNormalization(momentum=momentum))
 
-    model.add(MaxPool2D())
-    model.add(Dropout(.3))
-
-    model.add(Conv2D(128, (3,3), padding='same', activation='relu'))
-    model.add(Conv2D(128, (3,3), padding='same', activation='relu'))
-    model.add(BatchNormalization(momentum=momentum))
-
-    # flatten...
-    model.add(GlobalMaxPool2D())
-    return model
-
-from keras.layers import TimeDistributed, GRU, LSTM, Dense, Dropout
-def action_model(shape=(5, 256, 256, 3), nbout=3):
-    # Create our convnet with (256, 256, 3) input shape
-    convnet = build_convnet(shape[1:])
-
-    # then create our final model
-    model = keras.Sequential()
-    # add the convnet with (5, 256, 256, 3) shape
-    model.add(TimeDistributed(convnet, input_shape=shape))
-    # here, you can also use GRU or LSTM
-    model.add(LSTM(64))
-    # and finally, we make a decision network
-    model.add(Dense(1024, activation='relu'))
-    model.add(Dropout(.3))
-    model.add(Dense(512, activation='relu'))
-    model.add(Dropout(.3))
-    model.add(Dense(128, activation='relu'))
-    model.add(Dropout(.3))
-    model.add(Dense(64, activation='relu'))
-    model.add(Dropout(.3))
-    model.add(Dense(32, activation='relu'))
-    model.add(Dense(nbout, activation='softmax'))
-    return model
-
-INSHAPE=(NBFRAME,) + SIZE + (CHANNELS,) # (5, 256, 256, 3)
-model = action_model(INSHAPE, len(classes))
-optimizer = keras.optimizers.Adam(0.001)
-print(model.summary())
-model.compile(
-    optimizer,
-    'categorical_crossentropy',
-    metrics=['acc']
-)
-
-EPOCHS=50
-# create a "chkp" directory before to run that
-# because ModelCheckpoint will write models inside
-callbacks = [
-    keras.callbacks.ReduceLROnPlateau(verbose=1),
-    keras.callbacks.ModelCheckpoint(
-        'chkp/weights.{epoch:02d}-{val_loss:.2f}.hdf5',
-        verbose=1),
-]
-model.fit_generator(
-    train,
-    validation_data=valid,
-    verbose=1,
-    epochs=EPOCHS,
-    callbacks=callbacks
-)
