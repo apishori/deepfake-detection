@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 #classification model using k-nearest neighbors
 import pandas as pd
 import numpy as np
@@ -18,10 +12,6 @@ from subprocess import Popen, PIPE
 import subprocess
 import shlex
 
-
-# In[7]:
-
-
 #create labels array
 get_ipython().run_line_magic('pwd', '')
 y = []
@@ -30,14 +20,10 @@ for video_file in sorted(os.listdir(videos)):
     if ".mp4" in str(video_file):
             y.append(0)
             
-videos = "/deepfake_detection/videos/REAL"
+videos = "/deepfake_detection/videos/FAKE"
 for video_file in sorted(os.listdir(videos)):
     if ".mp4" in str(video_file):
             y.append(1)
-
-
-# In[9]:
-
 
 #run detect_blinks.py script on all videos and store number of blinks
 blinks = []
@@ -55,17 +41,10 @@ for video_file in sorted(os.listdir(videos)):
         print(output)
         blinks.append(output)
 
-
-# In[10]:
-
-
 # split data
 X_train, X_test, y_train, y_test = train_test_split(blinks, y, test_size=0.75, random_state=42)
 
-
-# In[16]:
-
-
+#KNN classifer
 from sklearn import neighbors
 
 clf = neighbors.KNeighborsClassifier(n_neighbors=10, weights='distance')
@@ -77,10 +56,3 @@ scores = clf.predict_proba(X_test)[:,1]
 print('Accuracy: ', accuracy_score(y_test, pred))
 print('AUROC: ', roc_auc_score(y_test, scores))
 print(classification_report(y_test, pred))
-
-
-# In[ ]:
-
-
-
-
