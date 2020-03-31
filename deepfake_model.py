@@ -1,6 +1,7 @@
 import os
 import glob
 import keras
+import h5py
 from keras_video import VideoFrameGenerator
 import keras_video.utils
 
@@ -98,6 +99,7 @@ def action_model(shape=(5, 112, 112, 3), nbout=3):
 INSHAPE=(NBFRAME,) + SIZE + (CHANNELS,) # (5, 112, 112, 3)
 model = action_model(INSHAPE, len(classes))
 optimizer = keras.optimizers.Adam(0.001)
+print(model.summary())
 model.compile(
     optimizer,
     'categorical_crossentropy',
@@ -121,3 +123,5 @@ model.fit_generator(
     epochs=EPOCHS,
     callbacks=callbacks
 )
+
+model.save('my_model.h5')
