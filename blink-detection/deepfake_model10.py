@@ -15,26 +15,26 @@ import shlex
 #create labels array
 get_ipython().run_line_magic('pwd', '')
 y = []
-videos = "/deepfake_detection/videos/REAL"
+videos = "data/REAL"
 for video_file in sorted(os.listdir(videos)):
     if ".mp4" in str(video_file):
             y.append(0)
             
-videos = "/deepfake_detection/videos/FAKE"
+videos = "data/FAKE"
 for video_file in sorted(os.listdir(videos)):
     if ".mp4" in str(video_file):
             y.append(1)
 
 #run detect_blinks.py script on all videos and store number of blinks
 blinks = []
-videos = "/Users/nchatwani/Desktop/deepfake_detection/videos/REAL"
+videos = "data/REAL"
 for video_file in sorted(os.listdir(videos)):
     if ".mp4" in str(video_file):
         output = get_ipython().getoutput('python detect_blinks.py $videos/$video_file shape_predictor_68_face_landmarks.dat')
         print(output)
         blinks.append(output)
         
-videos = "/Users/nchatwani/Desktop/deepfake_detection/videos/FAKE"
+videos = "data/FAKE"
 for video_file in sorted(os.listdir(videos)):
     if ".mp4" in str(video_file):
         output = get_ipython().getoutput('python detect_blinks.py $videos/$video_file shape_predictor_68_face_landmarks.dat')
