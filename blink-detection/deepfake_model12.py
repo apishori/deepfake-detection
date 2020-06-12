@@ -11,34 +11,34 @@ import os
 from subprocess import Popen, PIPE 
 import subprocess
 import shlex
+from sklearn.naive_bayes import GaussianNB
+
+path = 'C:/Users/armaa/Desktop/deepfake_detection/'
 
 #create labels array
 get_ipython().run_line_magic('pwd', '')
 y = []
-videos = "deepfake_detection/videos/REAL"
+videos = path+"data/train/REAL"
 for video_file in sorted(os.listdir(videos)):
     if ".mp4" in str(video_file):
             y.append(0)
             
-videos = "deepfake_detection/videos/FAKE"
+videos = path+"data/train/FAKE"
 for video_file in sorted(os.listdir(videos)):
     if ".mp4" in str(video_file):
             y.append(1)
 
 
-# In[4]:
-
-
 #run detect_blinks.py script on all videos and store number of blinks
 blinks = []
-videos = "/Users/nchatwani/Desktop/deepfake_detection/videos/REAL"
+videos = path+"data/train/REAL"
 for video_file in sorted(os.listdir(videos)):
     if ".mp4" in str(video_file):
         output = get_ipython().getoutput('python detect_blinks.py $videos/$video_file shape_predictor_68_face_landmarks.dat')
         print(output)
         blinks.append(output)
         
-videos = "/Users/nchatwani/Desktop/deepfake_detection/videos/FAKE"
+videos = path+"data/train/FAKE"
 for video_file in sorted(os.listdir(videos)):
     if ".mp4" in str(video_file):
         output = get_ipython().getoutput('python detect_blinks.py $videos/$video_file shape_predictor_68_face_landmarks.dat')
@@ -73,3 +73,6 @@ print('Accuracy: ', accuracy_score(y_test, pred))
 print('AUROC: ', roc_auc_score(y_test, scores))
 print(classification_report(y_test, pred))
 
+# Save the model as a pickle in a file 
+import joblib 
+joblib.dump(clf, path+'output_model/my_model12.pkl') 
