@@ -1,28 +1,24 @@
-import glob
 import os
+import glob
 import keras
 from keras_video import VideoFrameGenerator
 import keras_video.utils
 
-
-#Use subdir names as classes
-classes = [i.split(os.path.sep)[1] for i in glob.glob('data/*')]
+classes = [i.split(os.path.sep)[1] for i in glob.glob('../../data/facerec/*')]
 classes.sort()
 print(classes)
 
-
 #Global Params
-SIZE = (512, 512)
+SIZE = (112, 112)
 CHANNELS = 3
 NBFRAME = 5
 BS = 8
+EPOCHS=50
+CONVSHAPE=SIZE + (CHANNELS,)
+INSHAPE=(NBFRAME,) + CONVSHAPE
 
 #pattern to get videos and classes
-glob_pattern = 'data/{classname}/*.mp4'
-
-
-# In[8]:
-
+glob_pattern = '../../data/facerec/{classname}/*.mp4'
 
 #Create video frame generator
 train = VideoFrameGenerator(
@@ -34,21 +30,15 @@ train = VideoFrameGenerator(
     batch_size=BS,
     target_shape=SIZE,
     nb_channel=CHANNELS,
-    use_frame_cache=False)
-
-
-
+    use_frame_cache=False
+)
 valid = train.get_validation_generator()
-print(valid)
 
-
-# Model
-from keras.layers import Conv2D, ConvLSTM2D, BatchNormalization, MaxPool2D, GlobalMaxPool2D
-def build_convnet(shape=(512, 512, 3)):
-    momentum = .8
+from keras.layers import Conv2D, BatchNormalization, MaxPool2D, GlobalMaxPool2D
+def build_convnet(shape=CONVSHAPE):
+    momentum = .9
     model = keras.Sequential()
-    model.add(Conv2D(64, (3,3), input_shape=shape,
-        padding='same', activation='relu'))
+    model.add(Conv2D(64, (3,3), input_shape=shape, padding='same', activation='relu'))
     model.add(Conv2D(64, (3,3), padding='same', activation='relu'))
     model.add(BatchNormalization(momentum=momentum))
     
@@ -74,34 +64,27 @@ def build_convnet(shape=(512, 512, 3)):
     model.add(GlobalMaxPool2D())
     return model
 
-
-from keras.layers import TimeDistributed, GRU, LSTM, Dense, Dropout
-def action_model(shape=(5, 512, 512, 3), nbout=3):
-    # Create our convnet with (512, 512, 3) input shape
+from keras.layers import TimeDistributed, GRU, Dense, Dropout
+def action_model(shape=INSHAPE, nbout=2):
+    # Create our convnet with (112, 112, 3) input shape
     convnet = build_convnet(shape[1:])
-    
     # then create our final model
     model = keras.Sequential()
-    # add the convnet with (5, 512, 512, 3) shape
+    # add the convnet with (5, 112, 112, 3) shape
     model.add(TimeDistributed(convnet, input_shape=shape))
     # here, you can also use GRU or LSTM
-    model.add(LSTM(64))
+    model.add(GRU(64))
     # and finally, we make a decision network
     model.add(Dense(1024, activation='relu'))
-    model.add(Dropout(.3))
+    model.add(Dropout(.5))
     model.add(Dense(512, activation='relu'))
-    model.add(Dropout(.3))
+    model.add(Dropout(.5))
     model.add(Dense(128, activation='relu'))
-    model.add(Dropout(.3))
+    model.add(Dropout(.5))
     model.add(Dense(64, activation='relu'))
     model.add(Dense(nbout, activation='softmax'))
     return model
 
-
-# In[12]:
-
-
-INSHAPE=(NBFRAME,) + SIZE + (CHANNELS,) # (5, 512, 512, 3)
 model = action_model(INSHAPE, len(classes))
 optimizer = keras.optimizers.Adam(0.001)
 print(model.summary())
@@ -111,19 +94,7 @@ model.compile(
     metrics=['acc']
 )
 
-
-# In[ ]:
-
-
-EPOCHS=50
-# create a "chkp" directory before to run that
-# because ModelCheckpoint will write models inside
-callbacks = [
-    keras.callbacks.ReduceLROnPlateau(verbose=1),
-    keras.callbacks.ModelCheckpoint(
-        'chkp2/weights.{epoch:02d}-{val_loss:.2f}.hdf5',
-        verbose=1),
-]
+callbacks = [keras.callbacks.ReduceLROnPlateau(verbose=1),]
 model.fit_generator(
     train,
     validation_data=valid,
@@ -132,3 +103,6 @@ model.fit_generator(
     callbacks=callbacks
 )
 
+#Export model
+import h5py
+model.save('../output_models/rc_fc_base.h5')
