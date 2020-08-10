@@ -10,6 +10,11 @@ keras = "*"
 ipykernel = "*"
 tensorflow = "*"
 keras-video-generators = "*"
+pandas = "*"
+sklearn = "*"
+imutils = "*"
+cmake = "*"
+dlib = "*"
 
 [requires]
 python_version = "3.8"
